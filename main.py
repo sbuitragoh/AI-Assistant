@@ -25,9 +25,9 @@ async def main():
     
     messages: list = [
     {"role": "system", 
-     "content": "You are an helpful assistant who gives concrete answers."},
+     "content": "Eres un asistente que da respuestas concisas y claras a diferentes preguntas."},
     {"role": "user",
-     "content": "Hello!"}]
+     "content": "Hola, ¿cómo estás?"},]
     
     messages = await presentation(device, messages)
 
