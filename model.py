@@ -1,6 +1,7 @@
 import ollama
 import re
-from utils.constants import MODEL_NAME
+import asyncio
+from utils.constants import MODEL_NAME, THINK_RE
 
 preloaded_model = None
 
@@ -15,14 +16,16 @@ async def model(messages: list[dict]):
     if preloaded_model is None:
         raise RuntimeError("Model must be preloaded before use.")
 
-    response = preloaded_model.chat(model=MODEL_NAME, messages=messages)
-    answer: str = response.message.content
-    answer = re.sub(r"<think>.*?</think>", "", answer, flags=re.DOTALL)
+    response = await asyncio.to_thread(
+        preloaded_model.chat, model=MODEL_NAME, messages=messages
+    )
+    # Access the response as a dictionary
+    answer: str = response["message"]["content"]
+    answer = THINK_RE.sub("", answer)
     chunks = re.split(r'(?<=[.!?])\s+', answer)
     for chunk in chunks:
         yield chunk
 
 def shutdown_model():
     global preloaded_model
-    if preloaded_model is not None:
-        preloaded_model = None
+    preloaded_model = None

@@ -1,5 +1,5 @@
 import speech_recognition as sr # type: ignore
-import pyaudio as pa
+import pyaudio as pa #type: ignore
 import wave
 from utils.constants import TARGET_AUDIO, TIME, RECON_LAN
 
@@ -13,12 +13,20 @@ def preload_audio():
     if recognizer is None:
         recognizer = sr.Recognizer()
 
-def audio_recording() -> None:
+def save_file(filename: str, channels: int, sample_format, fs: int,
+              frames: list[bytes]):
+    global audio_instance
+    with wave.open(filename, 'wb') as wf:
+        wf.setnchannels(channels)
+        wf.setsampwidth(audio_instance.get_sample_size(sample_format))
+        wf.setframerate(fs)
+        wf.writeframes(b''.join(frames))
 
+def audio_recording():
     if audio_instance is None:
         raise RuntimeError("Audio instance must be preloaded before use.")
 
-    chunk: int = 1024
+    chunk: int = 2048
     sample_format = pa.paInt16
     channels: int = 1
     fs: int = 22050
@@ -29,21 +37,15 @@ def audio_recording() -> None:
     stream = audio_instance.open(format=sample_format, channels=channels,
                     rate=fs, input=True,
                     frames_per_buffer=chunk)
-    frames = []
-    for _ in range(0, int(fs / chunk * seconds)):
-        data = stream.read(chunk)
-        frames.append(data)
+    
+    num_chunks = int(fs / chunk * seconds)
+    frames = [stream.read(chunk) for _ in range(num_chunks)]
 
     stream.stop_stream()
     stream.close()
     print('Recording finished')
 
-    wf = wave.open(filename, 'wb')
-    wf.setnchannels(channels)
-    wf.setsampwidth(audio_instance.get_sample_size(sample_format))
-    wf.setframerate(fs)
-    wf.writeframes(b''.join(frames))
-    wf.close()
+    save_file(filename, channels, sample_format, fs, frames)
 
 def target_creation() -> str:
 
@@ -51,14 +53,14 @@ def target_creation() -> str:
         raise RuntimeError("Recognizer must be preloaded before use.")
 
     audio_recording()
-    audio = sr.AudioFile(TARGET_AUDIO)
+    audio_file = sr.AudioFile(TARGET_AUDIO)
 
-    with audio as source:        
+    with audio_file as source:        
         recognizer.adjust_for_ambient_noise(source=source, duration=0.5)
-        audio = recognizer.record(source)
+        audio_data = recognizer.record(source)
         
         try:
-            return recognizer.recognize_google(audio, language=RECON_LAN)
+            return recognizer.recognize_google(audio_data, language=RECON_LAN)
         except sr.UnknownValueError:
             print("Google Speech Recognition could not understand audio")
             return ""
